@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movie Details - EduWatcheruvista</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Public Sans', system-ui, -apple-system, sans-serif;
+            background-color: #0a0a0a;
+            color: #ffffff;
+        }
+
+        .movie-backdrop {
+            height: 70vh;
+            background-size: cover;
+            background-position: center;
+            position: relative;
+        }
+
+        .movie-backdrop::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(0deg, #0a0a0a 0%, transparent 100%);
+        }
+
+        .movie-content {
+            position: relative;
+            margin-top: -200px;
+            z-index: 2;
+        }
+
+        .movie-poster {
+            border-radius: 15px;
+            box-shadow: 0 5px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .rating-circle {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.8);
+            border: 3px solid #ffd700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="movieDetails">
+        <!-- Content will be loaded dynamically -->
+    </div>
+
+    <script>
+        (function () {
+            const _0x2f1a = ['NTJmZjQ2OWFhN2IyYzhiYjNlZjBkMmI3NzQ4NTE2MGY'];
+            const getSecureConfig = () => {
+                return {
+                    k: (() => atob(_0x2f1a[0]))(),
+                    b: 'https://api.themoviedb.org/3',
+                    i: 'https://image.tmdb.org/t/p/original'
+                };
+            };
+
+            async function fetchMovieVideos(mediaType, id) {
+                const c = getSecureConfig();
+                try {
+                    const response = await fetch(`${c.b}/${mediaType}/${id}/videos?api_key=${c.k}`);
+                    const data = await response.json();
+                    return data.results.find(video => video.type === "Trailer" && video.site === "YouTube") || data.results[0];
+                } catch (error) {
+                    console.error('Error:', error);
+                    return null;
+                }
+            }
+
+            // Update the loadMovieDetails function
+            async function loadMovieDetails() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const mediaType = urlParams.get('type');
+                const id = urlParams.get('id');
+                const c = getSecureConfig();
+
+                try {
+                    const [movieData, videoData, watchProviders] = await Promise.all([
+                        fetch(`${c.b}/${mediaType}/${id}?api_key=${c.k}`).then(res => res.json()),
+                        fetchMovieVideos(mediaType, id),
+                        fetch(`${c.b}/${mediaType}/${id}/watch/providers?api_key=${c.k}`).then(res => res.json())
+                    ]);
+                    displayMovieDetails(movieData, videoData, watchProviders);
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            }
+
+            function displayMovieDetails(data, video, watchProviders) {
+                const c = getSecureConfig();
+                const providers = watchProviders.results.US || {};
+
+                const streamingLinks = providers.flatrate ? `
+                    <div class="streaming-services mb-3">
+                        <h5 class="mb-3">Available on:</h5>
+                        <div class="d-flex gap-2 flex-wrap">
+                            ${providers.flatrate.map(provider => `
+                                <a href="${watchProviders.results.US.link}" target="_blank" class="text-decoration-none">
+                                    <img src="https://image.tmdb.org/t/p/original${provider.logo_path}" 
+                                        alt="${provider.provider_name}"
+                                        class="rounded"
+                                        style="width: 50px; height: 50px;"
+                                        title="${provider.provider_name}">
+                                </a>
+                            `).join('')}
+                        </div>
+                    </div>
+                ` : '';
+
+                const watchButton = providers.flatrate ? `
+                    <a href="${watchProviders.results.US.link}" target="_blank" class="btn btn-primary w-100 mb-2">
+                        <i class="fas fa-play me-2"></i>Watch Now
+                    </a>
+                ` : `
+                    <button class="btn btn-primary w-100 mb-2" disabled>
+                        <i class="fas fa-play me-2"></i>Not Available for Streaming
+                    </button>
+                `;
+
+                const content = `
+                    <div class="movie-backdrop" style="background-image: url('${c.i}${data.backdrop_path}')"></div>
+                    <div class="container movie-content">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <img src="${c.i}${data.poster_path}" class="img-fluid movie-poster" alt="${data.title}">
+                                <div class="mt-4">
+                                    ${watchButton}
+                                    <button class="btn btn-outline-light w-100">
+                                        <i class="fas fa-plus me-2"></i>Add to Watchlist
+                                    </button>
+                                </div>
+                                ${streamingLinks}
+                            </div>
+                            <div class="col-md-9">
+                                <h1 class="display-4 fw-bold">${data.title}</h1>
+                                <div class="d-flex align-items-center gap-4 mb-4">
+                                    <div class="rating-circle">
+                                        ${data.vote_average.toFixed(1)}
+                                    </div>
+                                    <div class="text-muted">${data.release_date.split('-')[0]} • ${data.runtime} min</div>
+                                </div>
+                                <p class="lead">${data.overview}</p>
+                                <div class="d-flex gap-2 mb-4">
+                                    ${data.genres.map(genre => `
+                                        <span class="badge bg-primary">${genre.name}</span>
+                                    `).join('')}
+                                </div>
+                                <a href="index.html" class="btn btn-outline-light">
+                                    <i class="fas fa-arrow-left me-2"></i>Back to Home
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                document.getElementById('movieDetails').innerHTML = content;
+            }
+
+            document.addEventListener('DOMContentLoaded', loadMovieDetails);
+        })();
+    </script>
+</body>
+
+</html>
